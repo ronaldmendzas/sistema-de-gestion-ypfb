@@ -9,48 +9,77 @@ def render():
 
     with tab_er:
         st.markdown("### Entidades del Modelo Centralizado")
-        st.caption("Antes de la fragmentacion, todas las tablas residian en un unico servidor.")
+        st.caption("Antes de la fragmentacion, todas las tablas residian en un unico servidor. Esta es la vista centralizada original.")
 
-        entidades = [
-            ("PLANTAS", ["id_plantas (PK)", "nombre_planta", "departamento"], "#003366"),
-            ("CARBURANTES", ["id_carburante (PK)", "nombre", "precio_surtidor_anh"], "#003366"),
-            ("SURTIDORES", ["id_surtidor (PK)", "nombre_surtidor", "departamento"], "#003366"),
-            ("STOCK_PLANTAS", ["id_stock (PK)", "id_plantas (FK)", "id_carburante (FK)", "stock_disponible_litros"], "#8b5e00"),
-            ("PEDIDOS_WEB", ["id_pedido (PK)", "id_surtidor (FK)", "id_carburante (FK)", "cantidad_litros_solicitados", "fecha_solicitud", "estado"], "#8b5e00"),
-            ("DESPACHOS", ["id_despacho (PK)", "id_pedido (FK)", "id_plantas (FK)", "litros_despachados", "fecha_despacho", "placa_cisterna", "costo_importacion_real", "subvencion_asumida_bs"], "#166534"),
-        ]
-
+        st.markdown("#### Tablas Catalogo e Inventario")
         c1, c2, c3 = st.columns(3)
-        for i, (nombre, columnas, color) in enumerate(entidades):
-            col = [c1, c2, c3][i % 3]
-            with col:
-                attrs = "<br>".join([f"<code style='font-size:0.75rem;color:#27272a;'>{c}</code>" for c in columnas])
-                st.markdown(f"""
-                <div style="border-left:4px solid {color};border-radius:6px;padding:10px 14px;background:white;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
-                    <div style="font-weight:700;color:{color};font-size:0.85rem;margin-bottom:4px;">{nombre}</div>
-                    <div style="line-height:1.6;">{attrs}</div>
-                </div>
-                """, unsafe_allow_html=True)
+
+        with c1:
+            st.markdown("**PLANTAS**")
+            st.dataframe(pd.DataFrame({"Columna": ["id_plantas (PK)", "nombre_planta", "departamento"], "Tipo": ["INT", "VARCHAR(150)", "VARCHAR(100)"]}), hide_index=True, use_container_width=True)
+
+        with c2:
+            st.markdown("**CARBURANTES**")
+            st.dataframe(pd.DataFrame({"Columna": ["id_carburante (PK)", "nombre", "precio_surtidor_anh"], "Tipo": ["INT", "VARCHAR(100)", "DECIMAL(10,2)"]}), hide_index=True, use_container_width=True)
+
+        with c3:
+            st.markdown("**SURTIDORES**")
+            st.dataframe(pd.DataFrame({"Columna": ["id_surtidor (PK)", "nombre_surtidor", "departamento"], "Tipo": ["INT", "VARCHAR(150)", "VARCHAR(100)"]}), hide_index=True, use_container_width=True)
+
+        st.markdown("#### Tablas Transaccionales")
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            st.markdown("**STOCK_PLANTAS**")
+            st.dataframe(pd.DataFrame({"Columna": ["id_stock (PK)", "id_plantas (FK)", "id_carburante (FK)", "stock_disponible_litros"], "Tipo": ["INT", "INT", "INT", "BIGINT"]}), hide_index=True, use_container_width=True)
+
+        with c2:
+            st.markdown("**PEDIDOS_WEB**")
+            st.dataframe(pd.DataFrame({"Columna": ["id_pedido (PK)", "id_surtidor (FK)", "id_carburante (FK)", "cantidad_litros_solicitados", "fecha_solicitud", "estado"], "Tipo": ["INT", "INT", "INT", "INT", "TIMESTAMP", "VARCHAR(50)"]}), hide_index=True, use_container_width=True)
+
+        with c3:
+            st.markdown("**DESPACHOS**")
+            st.dataframe(pd.DataFrame({"Columna": ["id_despacho (PK)", "id_pedido (FK)", "id_plantas (FK)", "litros_despachados", "fecha_despacho", "placa_cisterna", "costo_importacion_real", "subvencion_asumida_bs"], "Tipo": ["INT", "INT", "INT", "INT", "TIMESTAMP", "VARCHAR(20)", "DECIMAL(12,2)", "DECIMAL(12,2)"]}), hide_index=True, use_container_width=True)
 
         st.markdown("---")
-        st.markdown("### Relaciones")
-        rel_data = pd.DataFrame({
+        st.markdown("### Relaciones entre Entidades")
+        rel = pd.DataFrame({
             "Entidad Padre": ["PLANTAS", "CARBURANTES", "CARBURANTES", "SURTIDORES", "PEDIDOS_WEB", "PLANTAS"],
             "Cardinalidad": ["1:N", "1:N", "1:N", "1:N", "1:1", "1:N"],
             "Entidad Hijo": ["STOCK_PLANTAS", "STOCK_PLANTAS", "PEDIDOS_WEB", "PEDIDOS_WEB", "DESPACHOS", "DESPACHOS"]
         })
-        st.dataframe(rel_data, hide_index=True, use_container_width=True)
+        st.dataframe(rel, hide_index=True, use_container_width=True)
 
-        st.info("Nota: La tabla DESPACHOS contiene columnas operativas y financieras. Esta dualidad es la base de la fragmentacion hibrida.")
+        st.info("La tabla DESPACHOS contiene columnas operativas (id_despacho, id_pedido, id_plantas, litros_despachados, fecha_despacho, placa_cisterna) y columnas financieras (costo_importacion_real, subvencion_asumida_bs). Esta dualidad es la base de la fragmentacion hibrida: el corte vertical separa lo operativo de lo financiero.")
+
+        st.markdown("---")
+        st.markdown("### Modelo Despues de la Fragmentacion")
+        st.caption("Asi se ve el modelo distribuido: las tablas operativas se fragmentan horizontalmente, y la tabla financiera se concentra verticalmente en Santa Cruz.")
+
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.markdown("**PC1 — La Paz (PostgreSQL 17)**")
+            st.caption("Nodo Homogeneo")
+            st.dataframe(pd.DataFrame({"Tabla": ["plantas", "carburantes", "surtidores", "stock_plantas", "pedidos_web", "despachos_lp"], "Registros": ["3", "3", "5", "3", "2+", "2+"]}), hide_index=True, use_container_width=True)
+
+        with c2:
+            st.markdown("**PC2 — Cochabamba (MySQL 8)**")
+            st.caption("Nodo Heterogeneo")
+            st.dataframe(pd.DataFrame({"Tabla": ["plantas", "carburantes", "surtidores", "stock_plantas", "pedidos_web", "despachos_cbba"], "Registros": ["3", "3", "5", "2", "2+", "2+"]}), hide_index=True, use_container_width=True)
+
+        with c3:
+            st.markdown("**PC3 — Santa Cruz (PostgreSQL 15+)**")
+            st.caption("Nodo Coordinador Padre")
+            st.dataframe(pd.DataFrame({"Tabla": ["plantas", "carburantes", "surtidores", "stock_plantas", "pedidos_web", "despachos_sc", "despachos_finanzas"], "Registros": ["3", "3", "5", "2", "1+", "1+", "5+"]}), hide_index=True, use_container_width=True)
 
     with tab_frag:
         st.markdown("### Esquema de Fragmentacion Distribuida")
         st.caption("Las tablas se dividen entre 3 nodos geograficos con diferentes motores de BD.")
 
-        tab_s, tab_p, tab_d, tab_r = st.tabs(["STOCK_PLANTAS (Horizontal)", "PEDIDOS_WEB (Horizontal)", "DESPACHOS (Hibrida)", "Reconstruccion Global"])
+        tab_s, tab_p, tab_d, tab_r = st.tabs(["STOCK_PLANTAS", "PEDIDOS_WEB", "DESPACHOS (Hibrida)", "Reconstruccion Global"])
 
         with tab_s:
-            st.markdown("#### Fragmentacion Horizontal Primaria — STOCK_PLANTAS")
+            st.markdown("#### Fragmentacion Horizontal — STOCK_PLANTAS")
             st.caption("Cada nodo almacena solo los registros de su planta. Reconstruccion: UNION.")
 
             c1, c2, c3 = st.columns(3)
@@ -67,10 +96,10 @@ def render():
                 st.caption("PostgreSQL 15+ · id_plantas = 30")
                 st.dataframe(pd.DataFrame({"id_stock": [3001, 3002], "id_plantas": [30, 30], "id_carburante": [1, 2], "stock_litros": [900000, 1200000]}), hide_index=True)
 
-            st.code("STOCK_PLANTAS_Global = PC1 ∪ PC2 ∪ PC3", language=None)
+            st.code("STOCK_PLANTAS_Global = PC1 \u222a PC2 \u222a PC3", language=None)
 
         with tab_p:
-            st.markdown("#### Fragmentacion Horizontal Primaria — PEDIDOS_WEB")
+            st.markdown("#### Fragmentacion Horizontal — PEDIDOS_WEB")
             st.caption("Cada nodo almacena los pedidos de sus surtidores locales.")
 
             c1, c2, c3 = st.columns(3)
@@ -87,13 +116,13 @@ def render():
                 st.caption("Surtidor 301")
                 st.dataframe(pd.DataFrame({"id_pedido": [30001], "id_surtidor": [301], "id_carburante": [1], "litros": [25000], "estado": ["Despachado"]}), hide_index=True)
 
-            st.code("PEDIDOS_WEB_Global = PC1 ∪ PC2 ∪ PC3", language=None)
+            st.code("PEDIDOS_WEB_Global = PC1 \u222a PC2 \u222a PC3", language=None)
 
         with tab_d:
             st.markdown("#### Fragmentacion Hibrida — DESPACHOS")
             st.caption("Corte vertical (columnas confidenciales) + Corte horizontal (distribucion por planta).")
 
-            st.markdown("**Paso A: Corte Vertical**")
+            st.markdown("**Paso A: Corte Vertical** — Separacion de columnas")
             c_op, c_fin = st.columns(2)
             with c_op:
                 st.markdown("**DESPACHOS_OPERATIVOS**")
@@ -101,26 +130,25 @@ def render():
                 st.code("id_despacho, id_pedido, id_plantas,\nlitros_despachados, fecha_despacho,\nplaca_cisterna", language="sql")
             with c_fin:
                 st.markdown("**DESPACHOS_FINANZAS**")
-                st.caption("Solo en Santa Cruz (PC3)")
+                st.caption("Exclusivo del nodo Santa Cruz (PC3)")
                 st.code("id_despacho,\ncosto_importacion_real,\nsubvencion_asumida_bs", language="sql")
 
-            st.markdown("---")
             st.markdown("**Paso B: Corte Horizontal** — Distribucion por id_plantas")
             c1, c2, c3 = st.columns(3)
             with c1:
                 st.markdown("**PC1 — La Paz**")
-                st.code("id_plantas = 10\nIDs: 15XXX\nPostgreSQL 17", language=None)
+                st.code("sigma id_plantas = 10\nIDs: 15XXX\nPostgreSQL 17", language=None)
                 st.dataframe(pd.DataFrame({"id_despacho": [15001, 15002], "id_pedido": [10001, 10002], "id_plantas": [10, 10], "litros": [15000, 20000], "placa": ["2345-PKD", "4712-LXZ"]}), hide_index=True)
             with c2:
                 st.markdown("**PC2 — Cochabamba**")
-                st.code("id_plantas = 20\nIDs: 25XXX\nMySQL 8", language=None)
+                st.code("sigma id_plantas = 20\nIDs: 25XXX\nMySQL 8", language=None)
                 st.dataframe(pd.DataFrame({"id_despacho": [25001, 25002], "id_pedido": [20001, 20002], "id_plantas": [20, 20], "litros": [12000, 18000], "placa": ["3988-BFF", "1544-KLA"]}), hide_index=True)
             with c3:
                 st.markdown("**PC3 — Santa Cruz**")
-                st.code("id_plantas = 30\nIDs: 35XXX\nPostgreSQL 15+", language=None)
+                st.code("sigma id_plantas = 30\nIDs: 35XXX\nPostgreSQL 15+", language=None)
                 st.dataframe(pd.DataFrame({"id_despacho": [35001], "id_pedido": [30001], "id_plantas": [30], "litros": [25000], "placa": ["9822-XPT"]}), hide_index=True)
-                st.markdown("**+ DESPACHOS_FINANZAS (completa)**")
-                st.dataframe(pd.DataFrame({"id_despacho": [15001, 15002, 25001, 25002, 35001], "costo_real_Bs": [127500, 170000, 102000, 153000, 212500], "subvencion_Bs": [71400, 95200, 57120, 86040, 119000]}), hide_index=True)
+                st.markdown("**DESPACHOS_FINANZAS (tabla completa)**")
+                st.dataframe(pd.DataFrame({"id_despacho": [15001, 15002, 25001, 25002, 35001], "costo_real (Bs)": ["127,500", "170,000", "102,000", "153,000", "212,500"], "subvencion (Bs)": ["71,400", "95,200", "57,120", "86,040", "119,000"]}), hide_index=True)
 
         with tab_r:
             st.markdown("#### Pipeline de Reconstruccion Global Hibrida")

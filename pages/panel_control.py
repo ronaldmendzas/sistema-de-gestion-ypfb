@@ -7,7 +7,6 @@ from protocolo_2pc import ejecutar_2pc
 from reconstruccion import ejecutar_reconstruccion, obtener_datos_graficos
 
 DARK = {"La Paz": "#003366", "Cochabamba": "#166534", "Santa Cruz": "#991b1b"}
-LIGHT = {"La Paz": "#dbeafe", "Cochabamba": "#dcfce7", "Santa Cruz": "#fee2e2"}
 
 def render():
     sede = st.session_state.get("sede_activa")
@@ -62,15 +61,15 @@ def _render_operador(sede, info, estado, color):
     motor = info["motor"]
     puerto = "5432" if motor == "PostgreSQL" else "3306"
     connected = estado.get(sede, False)
-    dot_color = "#166534" if connected else "#dc2626"
-    status_text = "Conectado" if connected else "Desconectado"
+    dot = "#166534" if connected else "#dc2626"
+    status = "Conectado" if connected else "Desconectado"
 
     st.markdown(f"""<div style="background:{color};border-radius:10px;padding:14px 20px;margin-bottom:12px;">
-        <h2 style="color:#fff;margin:0;font-size:1.15rem;font-weight:700;">Operador Regional — {sede}</h2>
+        <h2 style="color:#ffffff;margin:0;font-size:1.15rem;font-weight:700;">Operador Regional — {sede}</h2>
         <p style="color:#ffffffcc;margin:2px 0 0 0;font-size:0.8rem;">{info["planta_nombre"]} · {info["badge"]} · Puerto {puerto}</p>
     </div>""", unsafe_allow_html=True)
 
-    st.markdown(f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{dot_color};margin-right:3px;vertical-align:middle;"></span> <span style="color:#18181b;font-weight:600;">{status_text}</span> <span style="color:#52525b;">· {motor} · Puerto {puerto}</span>', unsafe_allow_html=True)
+    st.markdown(f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{dot};margin-right:4px;"></span> <span style="color:#18181b;font-weight:600;">{status}</span> <span style="color:#52525b;">· {motor} · Puerto {puerto}</span>', unsafe_allow_html=True)
 
     if not connected:
         st.warning(f"Nodo {sede} no disponible. Verifica la conexion.")
@@ -139,7 +138,7 @@ def _render_operador(sede, info, estado, color):
 
 def _render_gerente(sede, info, estado, color):
     st.markdown(f"""<div style="background:{color};border-radius:10px;padding:14px 20px;margin-bottom:12px;">
-        <h2 style="color:#fff;margin:0;font-size:1.15rem;font-weight:700;">Gerente Nacional — Sede Central</h2>
+        <h2 style="color:#ffffff;margin:0;font-size:1.15rem;font-weight:700;">Gerente Nacional — Sede Central</h2>
         <p style="color:#ffffffcc;margin:2px 0 0 0;font-size:0.8rem;">{info["planta_nombre"]} · Nodo Coordinador Padre</p>
     </div>""", unsafe_allow_html=True)
 
@@ -149,7 +148,7 @@ def _render_gerente(sede, info, estado, color):
         with cols[i]:
             dot = "#166534" if estado.get(nombre, False) else "#dc2626"
             st_text = "Online" if estado.get(nombre, False) else "Offline"
-            st.markdown(f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{dot};margin-right:4px;vertical-align:middle;"></span><span style="color:#18181b;font-weight:600;">{nombre}</span> <span style="color:#52525b;">({motor}) — {st_text}</span>', unsafe_allow_html=True)
+            st.markdown(f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{dot};margin-right:4px;"></span><span style="color:#18181b;font-weight:600;">{nombre}</span> <span style="color:#52525b;">({motor}) — {st_text}</span>', unsafe_allow_html=True)
 
     tab_log, tab_fin, tab_rec = st.tabs(["Logistica Local", "Boveda Financiera", "Reconstruccion Global"])
 
@@ -207,7 +206,7 @@ def _render_gerente(sede, info, estado, color):
 
     with tab_rec:
         st.markdown("### Reconstruccion Distribuida Hibrida")
-        st.caption("Union horizontal (∪) de los 3 fragmentos operativos + Junta vertical (⋈) con la tabla financiera central.")
+        st.caption("Union horizontal de los 3 fragmentos operativos + Junta vertical con la tabla financiera central.")
 
         if st.button("EJECUTAR RECONSTRUCCION DISTRIBUIDA", key="btn_reconstruir", type="primary", use_container_width=True):
             progress = st.progress(0, text="Iniciando reconstruccion...")
@@ -219,9 +218,9 @@ def _render_gerente(sede, info, estado, color):
             time.sleep(0.6)
             progress.progress(60, text="Extrayendo datos Santa Cruz (PostgreSQL)...")
             time.sleep(0.6)
-            progress.progress(80, text="pd.concat() — Union horizontal ∪...")
+            progress.progress(80, text="pd.concat() — Union horizontal...")
             time.sleep(0.4)
-            progress.progress(95, text="pd.merge() — Junta vertical ⋈...")
+            progress.progress(95, text="pd.merge() — Junta vertical...")
             time.sleep(0.4)
 
             resultado = ejecutar_reconstruccion()
@@ -249,16 +248,11 @@ def _render_gerente(sede, info, estado, color):
                             cc[col] = st.column_config.DatetimeColumn(format="YYYY-MM-DD HH:mm")
                     st.dataframe(df_final, hide_index=True, column_config=cc)
 
-                    total_litros = df_final["litros_despachados"].sum()
-                    total_costo = df_final["costo_importacion_real"].sum()
-                    total_subvencion = df_final["subvencion_asumida_bs"].sum()
-                    total_despachos = len(df_final)
-
                     m1, m2, m3, m4 = st.columns(4)
-                    m1.metric("Total Litros", f"{total_litros:,}")
-                    m2.metric("Costo Importacion", f"Bs. {total_costo:,.2f}")
-                    m3.metric("Subvencion Asumida", f"Bs. {total_subvencion:,.2f}")
-                    m4.metric("Despachos", f"{total_despachos}")
+                    m1.metric("Total Litros", f"{df_final['litros_despachados'].sum():,}")
+                    m2.metric("Costo Importacion", f"Bs. {df_final['costo_importacion_real'].sum():,.2f}")
+                    m3.metric("Subvencion Asumida", f"Bs. {df_final['subvencion_asumida_bs'].sum():,.2f}")
+                    m4.metric("Despachos", f"{len(df_final)}")
 
                     df_barras, df_donut = obtener_datos_graficos(df_final)
                     if df_barras is not None:
