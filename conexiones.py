@@ -1,5 +1,6 @@
 import psycopg2
 import pymysql
+from sqlalchemy import create_engine
 from config import (
     LP_HOST, LP_PORT, LP_USER, LP_PASS, LP_DB,
     CBBA_HOST, CBBA_PORT, CBBA_USER, CBBA_PASS, CBBA_DB,
@@ -29,6 +30,21 @@ def get_conn_santacruz():
     )
 
 
+def get_engine_lapaz():
+    url = f"postgresql://{LP_USER}:{LP_PASS}@{LP_HOST}:{LP_PORT}/{LP_DB}"
+    return create_engine(url)
+
+
+def get_engine_cochabamba():
+    url = f"mysql+pymysql://{CBBA_USER}:{CBBA_PASS}@{CBBA_HOST}:{CBBA_PORT}/{CBBA_DB}"
+    return create_engine(url)
+
+
+def get_engine_santacruz():
+    url = f"postgresql://{SC_USER}:{SC_PASS}@{SC_HOST}:{SC_PORT}/{SC_DB}"
+    return create_engine(url)
+
+
 def test_conexion(get_conn_func):
     conn = None
     try:
@@ -54,6 +70,16 @@ def get_conn_by_sede(sede):
         return get_conn_cochabamba()
     elif sede == "Santa Cruz":
         return get_conn_santacruz()
+    raise ValueError(f"Sede desconocida: {sede}")
+
+
+def get_engine_by_sede(sede):
+    if sede == "La Paz":
+        return get_engine_lapaz()
+    elif sede == "Cochabamba":
+        return get_engine_cochabamba()
+    elif sede == "Santa Cruz":
+        return get_engine_santacruz()
     raise ValueError(f"Sede desconocida: {sede}")
 
 

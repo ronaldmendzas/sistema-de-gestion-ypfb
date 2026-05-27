@@ -1,112 +1,73 @@
 import time
 import pandas as pd
-from conexiones import get_conn_lapaz, get_conn_cochabamba, get_conn_santacruz
+from conexiones import get_engine_lapaz, get_engine_cochabamba, get_engine_santacruz
 
 
 COLUMNAS_DESPACHOS = ["id_despacho", "id_pedido", "id_plantas", "litros_despachados", "fecha_despacho", "placa_cisterna"]
 
 
 def obtener_despachos_lp():
-    conn = None
     try:
-        conn = get_conn_lapaz()
-        df = pd.read_sql_query("SELECT * FROM despachos_lp", conn)
+        engine = get_engine_lapaz()
+        df = pd.read_sql_query("SELECT * FROM despachos_lp", engine)
         df["fecha_despacho"] = pd.to_datetime(df["fecha_despacho"])
         for col in ["id_despacho", "id_pedido", "id_plantas", "litros_despachados"]:
             df[col] = df[col].astype("int64")
+        engine.dispose()
         return df
     except Exception:
         return pd.DataFrame(columns=COLUMNAS_DESPACHOS)
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
 
 def obtener_despachos_cbba():
-    conn = None
     try:
-        conn = get_conn_cochabamba()
-        df = pd.read_sql_query("SELECT * FROM despachos_cbba", conn)
+        engine = get_engine_cochabamba()
+        df = pd.read_sql_query("SELECT * FROM despachos_cbba", engine)
         df["fecha_despacho"] = pd.to_datetime(df["fecha_despacho"])
         for col in ["id_despacho", "id_pedido", "id_plantas", "litros_despachados"]:
             df[col] = df[col].astype("int64")
+        engine.dispose()
         return df
     except Exception:
         return pd.DataFrame(columns=COLUMNAS_DESPACHOS)
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
 
 def obtener_despachos_sc():
-    conn = None
     try:
-        conn = get_conn_santacruz()
-        df = pd.read_sql_query("SELECT * FROM despachos_sc", conn)
+        engine = get_engine_santacruz()
+        df = pd.read_sql_query("SELECT * FROM despachos_sc", engine)
         df["fecha_despacho"] = pd.to_datetime(df["fecha_despacho"])
         for col in ["id_despacho", "id_pedido", "id_plantas", "litros_despachados"]:
             df[col] = df[col].astype("int64")
+        engine.dispose()
         return df
     except Exception:
         return pd.DataFrame(columns=COLUMNAS_DESPACHOS)
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
 
 def obtener_finanzas_sc():
-    conn = None
     try:
-        conn = get_conn_santacruz()
-        df = pd.read_sql_query("SELECT * FROM despachos_finanzas", conn)
+        engine = get_engine_santacruz()
+        df = pd.read_sql_query("SELECT * FROM despachos_finanzas ORDER BY id_despacho", engine)
         df["id_despacho"] = df["id_despacho"].astype("int64")
+        engine.dispose()
         return df
     except Exception:
         return pd.DataFrame(columns=["id_despacho", "costo_importacion_real", "subvencion_asumida_bs"])
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
 
 def obtener_pedidos_por_sede(sede):
-    from config import SEDES
-    if sede == "La Paz":
-        conn_func = get_conn_lapaz
-    elif sede == "Cochabamba":
-        conn_func = get_conn_cochabamba
-    elif sede == "Santa Cruz":
-        conn_func = get_conn_santacruz
-    else:
-        return pd.DataFrame()
-
-    conn = None
+    from conexiones import get_engine_by_sede
     try:
-        conn = conn_func()
-        df = pd.read_sql_query("SELECT * FROM pedidos_web", conn)
+        engine = get_engine_by_sede(sede)
+        df = pd.read_sql_query("SELECT * FROM pedidos_web", engine)
         for col in ["id_pedido", "id_surtidor", "id_carburante", "cantidad_litros_solicitados"]:
             if col in df.columns:
                 df[col] = df[col].astype("int64")
+        engine.dispose()
         return df
     except Exception:
         return pd.DataFrame()
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
 
 def ejecutar_reconstruccion():
@@ -169,10 +130,11 @@ def obtener_datos_graficos(df_final):
 
     id_carburante_map = {1: "Gasolina Especial Plus", 2: "Diesel Oil", 3: "Gasolina Premium Ultra"}
 
-    conn = None
     try:
-        conn = get_conn_santacruz()
-        df_pedidos_sc = pd.read_sql_query("SELECT id_pedido, id_carburante FROM pedidos_web", conn)
+        from conexiones import get_engine_santacruz
+        engine = get_engine_santacruz()
+        df_pedidos_sc = pd.read_sql_query("SELECT id_pedido, id_carburante FROM pedidos_web", engine)
+        engine.dispose()
         df_final_con_carburante = pd.merge(df_final, df_pedidos_sc, on="id_pedido", how="left")
         df_final_con_carburante["carburante"] = df_final_con_carburante["id_carburante"].map(id_carburante_map)
         df_donut = df_final_con_carburante.groupby("carburante")["subvencion_asumida_bs"].sum().reset_index()
@@ -180,11 +142,5 @@ def obtener_datos_graficos(df_final):
     except Exception:
         df_donut = df_final.groupby("departamento")["subvencion_asumida_bs"].sum().reset_index()
         df_donut.columns = ["Carburante", "Subvencion (Bs.)"]
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
 
     return df_barras, df_donut

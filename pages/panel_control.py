@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from config import SEDES, CARBURANTES, PRECIOS_CARBURANTES
-from conexiones import get_conn_by_sede, get_conn_santacruz, estado_nodos
+from conexiones import get_conn_by_sede, get_conn_santacruz, get_engine_by_sede, get_engine_santacruz, estado_nodos
 from protocolo_2pc import ejecutar_2pc
 from reconstruccion import (
     ejecutar_reconstruccion,
@@ -104,54 +104,73 @@ def _render_operador_regional(sede, info, estado):
         tab_stock, tab_pedidos, tab_despachos = st.tabs(["\U0001f4e5 Stock Local", "\U0001f4ec Pedidos Locales", "\U0001f69b Despachos Locales"])
 
         with tab_stock:
-            conn = None
             try:
-                conn = get_conn_by_sede(sede)
+                engine = get_engine_by_sede(sede)
                 df_stock = pd.read_sql_query(
                     "SELECT s.id_stock, p.nombre_planta, c.nombre as carburante, s.stock_disponible_litros "
                     "FROM stock_plantas s JOIN plantas p ON s.id_plantas = p.id_plantas "
                     "JOIN carburantes c ON s.id_carburante = c.id_carburante "
-                    "WHERE s.id_plantas = %s", conn, params=(info["planta_id"],)
+                    "WHERE s.id_plantas = %s",
+                    engine,
+                    params=(info["planta_id"],)
                 )
-                st.dataframe(df_stock, hide_index=True, use_container_width=True)
-            except Exception as e:
-                st.error(f"Error al consultar stock local: {e}")
-            finally:
-                if conn:
-                    try:
-                        conn.close()
-                    except Exception:
-                        pass
+                st.dataframe(df_stock, hide_index=True)
+                engine.dispose()
+            except Exception:
+                try:
+                    engine.dispose()
+                except Exception:
+                    pass
+                try:
+                    conn = get_conn_by_sede(sede)
+                    df_stock = pd.read_sql_query(
+                        "SELECT s.id_stock, p.nombre_planta, c.nombre as carburante, s.stock_disponible_litros "
+                        "FROM stock_plantas s JOIN plantas p ON s.id_plantas = p.id_plantas "
+                        "JOIN carburantes c ON s.id_carburante = c.id_carburante "
+                        "WHERE s.id_plantas = %s", conn, params=(info["planta_id"],)
+                    )
+                    st.dataframe(df_stock, hide_index=True)
+                    conn.close()
+                except Exception as e2:
+                    st.error(f"Error al consultar stock local: {e2}")
 
         with tab_pedidos:
-            conn = None
             try:
-                conn = get_conn_by_sede(sede)
-                df_pedidos = pd.read_sql_query("SELECT * FROM pedidos_web", conn)
-                st.dataframe(df_pedidos, hide_index=True, use_container_width=True)
-            except Exception as e:
-                st.error(f"Error al consultar pedidos locales: {e}")
-            finally:
-                if conn:
-                    try:
-                        conn.close()
-                    except Exception:
-                        pass
+                engine = get_engine_by_sede(sede)
+                df_pedidos = pd.read_sql_query("SELECT * FROM pedidos_web", engine)
+                st.dataframe(df_pedidos, hide_index=True)
+                engine.dispose()
+            except Exception:
+                try:
+                    engine.dispose()
+                except Exception:
+                    pass
+                try:
+                    conn = get_conn_by_sede(sede)
+                    df_pedidos = pd.read_sql_query("SELECT * FROM pedidos_web", conn)
+                    st.dataframe(df_pedidos, hide_index=True)
+                    conn.close()
+                except Exception as e:
+                    st.error(f"Error al consultar pedidos locales: {e}")
 
         with tab_despachos:
-            conn = None
             try:
-                conn = get_conn_by_sede(sede)
-                df_despachos = pd.read_sql_query(f"SELECT * FROM {info['tabla_despacho']}", conn)
-                st.dataframe(df_despachos, hide_index=True, use_container_width=True)
-            except Exception as e:
-                st.error(f"Error al consultar despachos locales: {e}")
-            finally:
-                if conn:
-                    try:
-                        conn.close()
-                    except Exception:
-                        pass
+                engine = get_engine_by_sede(sede)
+                df_despachos = pd.read_sql_query(f"SELECT * FROM {info['tabla_despacho']}", engine)
+                st.dataframe(df_despachos, hide_index=True)
+                engine.dispose()
+            except Exception:
+                try:
+                    engine.dispose()
+                except Exception:
+                    pass
+                try:
+                    conn = get_conn_by_sede(sede)
+                    df_despachos = pd.read_sql_query(f"SELECT * FROM {info['tabla_despacho']}", conn)
+                    st.dataframe(df_despachos, hide_index=True)
+                    conn.close()
+                except Exception as e:
+                    st.error(f"Error al consultar despachos locales: {e}")
 
     st.markdown("---")
     if st.button("\U0001f512 Intentar acceder a datos financieros", key=f"btn_finanzas_{sede}"):
@@ -233,19 +252,23 @@ def _render_gerente_nacional(sede, info, estado):
                 else:
                     st.error("\u274c Transaccion fallida. Revisa el log para mas detalles.")
 
-        conn = None
         try:
-            conn = get_conn_by_sede(sede)
-            df_despachos_sc = pd.read_sql_query("SELECT * FROM despachos_sc", conn)
-            st.dataframe(df_despachos_sc, hide_index=True, use_container_width=True)
-        except Exception as e:
-            st.error(f"Error al consultar despachos locales: {e}")
-        finally:
-            if conn:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
+            engine = get_engine_santacruz()
+            df_despachos_sc = pd.read_sql_query("SELECT * FROM despachos_sc", engine)
+            st.dataframe(df_despachos_sc, hide_index=True)
+            engine.dispose()
+        except Exception:
+            try:
+                engine.dispose()
+            except Exception:
+                pass
+            try:
+                conn = get_conn_by_sede(sede)
+                df_despachos_sc = pd.read_sql_query("SELECT * FROM despachos_sc", conn)
+                st.dataframe(df_despachos_sc, hide_index=True)
+                conn.close()
+            except Exception as e:
+                st.error(f"Error al consultar despachos locales: {e}")
 
     with tab_finanzas:
         st.markdown("""
@@ -255,16 +278,16 @@ def _render_gerente_nacional(sede, info, estado):
         </div>
         """, unsafe_allow_html=True)
 
-        conn = None
         try:
-            conn = get_conn_santacruz()
-            df_finanzas = pd.read_sql_query("SELECT * FROM despachos_finanzas ORDER BY id_despacho", conn)
+            engine = get_engine_santacruz()
+            df_finanzas = pd.read_sql_query("SELECT * FROM despachos_finanzas ORDER BY id_despacho", engine)
+            engine.dispose()
 
             df_finanzas_display = df_finanzas.copy()
             df_finanzas_display["costo_importacion_real"] = df_finanzas_display["costo_importacion_real"].apply(lambda x: f"Bs. {x:,.2f}")
             df_finanzas_display["subvencion_asumida_bs"] = df_finanzas_display["subvencion_asumida_bs"].apply(lambda x: f"Bs. {x:,.2f}")
 
-            st.dataframe(df_finanzas_display, hide_index=True, use_container_width=True)
+            st.dataframe(df_finanzas_display, hide_index=True)
 
             total_subvencion = df_finanzas["subvencion_asumida_bs"].sum()
             total_costo = df_finanzas["costo_importacion_real"].sum()
@@ -272,13 +295,27 @@ def _render_gerente_nacional(sede, info, estado):
             st.markdown(f"**Total Costo Importacion:** Bs. {total_costo:,.2f}")
 
         except Exception as e:
-            st.error(f"Error al consultar datos financieros: {e}")
-        finally:
-            if conn:
-                try:
-                    conn.close()
-                except Exception:
-                    pass
+            try:
+                engine.dispose()
+            except Exception:
+                pass
+            try:
+                conn = get_conn_santacruz()
+                df_finanzas = pd.read_sql_query("SELECT * FROM despachos_finanzas ORDER BY id_despacho", conn)
+                conn.close()
+
+                df_finanzas_display = df_finanzas.copy()
+                df_finanzas_display["costo_importacion_real"] = df_finanzas_display["costo_importacion_real"].apply(lambda x: f"Bs. {x:,.2f}")
+                df_finanzas_display["subvencion_asumida_bs"] = df_finanzas_display["subvencion_asumida_bs"].apply(lambda x: f"Bs. {x:,.2f}")
+
+                st.dataframe(df_finanzas_display, hide_index=True)
+
+                total_subvencion = df_finanzas["subvencion_asumida_bs"].sum()
+                total_costo = df_finanzas["costo_importacion_real"].sum()
+                st.markdown(f"**Total Subvencion Acumulada:** Bs. {total_subvencion:,.2f}")
+                st.markdown(f"**Total Costo Importacion:** Bs. {total_costo:,.2f}")
+            except Exception as e2:
+                st.error(f"Error al consultar datos financieros: {e2}")
 
     with tab_reconstruccion:
         st.markdown("### \U0001f310 Reconstruccion Distribuida Hibrida")
@@ -340,7 +377,7 @@ def _render_gerente_nacional(sede, info, estado):
                         elif col == "fecha_despacho":
                             column_config[col] = st.column_config.DatetimeColumn(format="YYYY-MM-DD HH:mm")
 
-                    st.dataframe(df_final, hide_index=True, use_container_width=True, column_config=column_config)
+                    st.dataframe(df_final, hide_index=True, column_config=column_config)
 
                     total_litros = df_final["litros_despachados"].sum()
                     total_costo = df_final["costo_importacion_real"].sum()
@@ -412,4 +449,4 @@ def _render_gerente_nacional(sede, info, estado):
                 elif col == "fecha_despacho":
                     column_config[col] = st.column_config.DatetimeColumn(format="YYYY-MM-DD HH:mm")
 
-            st.dataframe(df_final, hide_index=True, use_container_width=True, column_config=column_config)
+            st.dataframe(df_final, hide_index=True, column_config=column_config)
