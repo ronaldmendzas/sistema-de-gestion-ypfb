@@ -6,7 +6,8 @@ from conexiones import get_conn_by_sede, get_conn_santacruz, get_engine_by_sede,
 from protocolo_2pc import ejecutar_2pc
 from reconstruccion import ejecutar_reconstruccion, obtener_datos_graficos
 
-COLORS = {"La Paz": "#003366", "Cochabamba": "#166534", "Santa Cruz": "#991b1b"}
+DARK = {"La Paz": "#003366", "Cochabamba": "#166534", "Santa Cruz": "#991b1b"}
+LIGHT = {"La Paz": "#dbeafe", "Cochabamba": "#dcfce7", "Santa Cruz": "#fee2e2"}
 
 def render():
     sede = st.session_state.get("sede_activa")
@@ -23,8 +24,7 @@ def render():
     except Exception:
         estado = {k: False for k in SEDES.keys()}
 
-    color = COLORS.get(sede, "#003366")
-
+    color = DARK.get(sede, "#003366")
     if sede in ["La Paz", "Cochabamba"]:
         _render_operador(sede, info, estado, color)
     else:
@@ -62,11 +62,15 @@ def _render_operador(sede, info, estado, color):
     motor = info["motor"]
     puerto = "5432" if motor == "PostgreSQL" else "3306"
     connected = estado.get(sede, False)
-    dot = "#166534" if connected else "#dc2626"
+    dot_color = "#166534" if connected else "#dc2626"
     status_text = "Conectado" if connected else "Desconectado"
 
-    st.markdown(f'<div style="background:{color};border-radius:10px;padding:14px 20px;margin-bottom:4px;"><h2 style="color:#fff;margin:0;font-size:1.15rem;font-weight:700;">Operador Regional — {sede}</h2><p style="color:#ffffffbb;margin:2px 0 0 0;font-size:0.8rem;">{info["planta_nombre"]} · {info["badge"]} · Puerto {puerto}</p></div>', unsafe_allow_html=True)
-    st.markdown(f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{dot};margin-right:5px;vertical-align:middle;"></span><span style="color:#18181b;font-weight:600;">{status_text}</span> <span style="color:#52525b;">· {motor} · Puerto {puerto}</span>', unsafe_allow_html=True)
+    st.markdown(f"""<div style="background:{color};border-radius:10px;padding:14px 20px;margin-bottom:12px;">
+        <h2 style="color:#fff;margin:0;font-size:1.15rem;font-weight:700;">Operador Regional — {sede}</h2>
+        <p style="color:#ffffffcc;margin:2px 0 0 0;font-size:0.8rem;">{info["planta_nombre"]} · {info["badge"]} · Puerto {puerto}</p>
+    </div>""", unsafe_allow_html=True)
+
+    st.markdown(f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{dot_color};margin-right:3px;vertical-align:middle;"></span> <span style="color:#18181b;font-weight:600;">{status_text}</span> <span style="color:#52525b;">· {motor} · Puerto {puerto}</span>', unsafe_allow_html=True)
 
     if not connected:
         st.warning(f"Nodo {sede} no disponible. Verifica la conexion.")
@@ -109,21 +113,18 @@ def _render_operador(sede, info, estado, color):
     with col_datos:
         st.markdown(f"### Fragmento Local — {sede}")
         tab_s, tab_p, tab_d = st.tabs(["Stock", "Pedidos", "Despachos"])
-
         with tab_s:
             df = _safe_query(lambda: get_engine_by_sede(sede), "SELECT s.id_stock, p.nombre_planta, c.nombre as carburante, s.stock_disponible_litros FROM stock_plantas s JOIN plantas p ON s.id_plantas = p.id_plantas JOIN carburantes c ON s.id_carburante = c.id_carburante WHERE s.id_plantas = %s", params=(info["planta_id"],), fallback_conn_func=lambda: get_conn_by_sede(sede))
             if not df.empty:
                 st.dataframe(df, hide_index=True)
             else:
                 st.info("No se pudieron consultar los datos de stock. Verifica la conexion.")
-
         with tab_p:
             df = _safe_query(lambda: get_engine_by_sede(sede), "SELECT * FROM pedidos_web", fallback_conn_func=lambda: get_conn_by_sede(sede))
             if not df.empty:
                 st.dataframe(df, hide_index=True)
             else:
                 st.info("No se pudieron consultar los pedidos. Verifica la conexion.")
-
         with tab_d:
             df = _safe_query(lambda: get_engine_by_sede(sede), f"SELECT * FROM {info['tabla_despacho']}", fallback_conn_func=lambda: get_conn_by_sede(sede))
             if not df.empty:
@@ -137,15 +138,18 @@ def _render_operador(sede, info, estado, color):
 
 
 def _render_gerente(sede, info, estado, color):
-    st.markdown(f'<div style="background:{color};border-radius:10px;padding:14px 20px;margin-bottom:4px;"><h2 style="color:#fff;margin:0;font-size:1.15rem;font-weight:700;">Gerente Nacional — Sede Central</h2><p style="color:#ffffffbb;margin:2px 0 0 0;font-size:0.8rem;">{info["planta_nombre"]} · Nodo Coordinador Padre</p></div>', unsafe_allow_html=True)
+    st.markdown(f"""<div style="background:{color};border-radius:10px;padding:14px 20px;margin-bottom:12px;">
+        <h2 style="color:#fff;margin:0;font-size:1.15rem;font-weight:700;">Gerente Nacional — Sede Central</h2>
+        <p style="color:#ffffffcc;margin:2px 0 0 0;font-size:0.8rem;">{info["planta_nombre"]} · Nodo Coordinador Padre</p>
+    </div>""", unsafe_allow_html=True)
 
-    nodos_info = [("La Paz", "PostgreSQL", "#003366"), ("Cochabamba", "MySQL", "#166534"), ("Santa Cruz", "PostgreSQL", "#991b1b")]
     cols = st.columns(3)
-    for i, (nombre, motor, nc) in enumerate(nodos_info):
+    nodos_info = [("La Paz", "PostgreSQL"), ("Cochabamba", "MySQL"), ("Santa Cruz", "PostgreSQL")]
+    for i, (nombre, motor) in enumerate(nodos_info):
         with cols[i]:
             dot = "#166534" if estado.get(nombre, False) else "#dc2626"
             st_text = "Online" if estado.get(nombre, False) else "Offline"
-            st.markdown(f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{dot};margin-right:5px;"></span><span style="color:#18181b;font-weight:600;">{nombre}</span> <span style="color:#52525b;">({motor}) — {st_text}</span>', unsafe_allow_html=True)
+            st.markdown(f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{dot};margin-right:4px;vertical-align:middle;"></span><span style="color:#18181b;font-weight:600;">{nombre}</span> <span style="color:#52525b;">({motor}) — {st_text}</span>', unsafe_allow_html=True)
 
     tab_log, tab_fin, tab_rec = st.tabs(["Logistica Local", "Boveda Financiera", "Reconstruccion Global"])
 
@@ -185,7 +189,10 @@ def _render_gerente(sede, info, estado, color):
             st.dataframe(df, hide_index=True)
 
     with tab_fin:
-        st.markdown('<div style="border:1px solid #991b1b;border-radius:8px;padding:10px 14px;background:#fef2f2;margin-bottom:10px;"><strong style="color:#991b1b;">DESPACHOS_FINANZAS</strong> — Datos Macroeconomicos Confidenciales<br><span style="color:#52525b;font-size:0.8rem;">Nivel de Acceso: Solo Sede Central</span></div>', unsafe_allow_html=True)
+        st.markdown("""<div style="border:1px solid #991b1b;border-radius:8px;padding:10px 14px;background:#fef2f2;margin-bottom:10px;">
+            <strong style="color:#991b1b;">DESPACHOS_FINANZAS</strong> — Datos Macroeconomicos Confidenciales<br>
+            <span style="color:#52525b;font-size:0.8rem;">Nivel de Acceso: Solo Sede Central</span>
+        </div>""", unsafe_allow_html=True)
 
         df = _safe_query(get_engine_santacruz, "SELECT * FROM despachos_finanzas ORDER BY id_despacho", fallback_conn_func=get_conn_santacruz)
         if not df.empty:
@@ -193,10 +200,8 @@ def _render_gerente(sede, info, estado, color):
             df_disp["costo_importacion_real"] = df_disp["costo_importacion_real"].apply(lambda x: f"Bs. {x:,.2f}")
             df_disp["subvencion_asumida_bs"] = df_disp["subvencion_asumida_bs"].apply(lambda x: f"Bs. {x:,.2f}")
             st.dataframe(df_disp, hide_index=True)
-            total_sub = df["subvencion_asumida_bs"].sum()
-            total_cos = df["costo_importacion_real"].sum()
-            st.markdown(f"**Total Subvencion Acumulada:** Bs. {total_sub:,.2f}")
-            st.markdown(f"**Total Costo Importacion:** Bs. {total_cos:,.2f}")
+            st.markdown(f"**Total Subvencion Acumulada:** Bs. {df['subvencion_asumida_bs'].sum():,.2f}")
+            st.markdown(f"**Total Costo Importacion:** Bs. {df['costo_importacion_real'].sum():,.2f}")
         else:
             st.info("No se pudieron consultar los datos financieros. Verifica la conexion a Santa Cruz.")
 
